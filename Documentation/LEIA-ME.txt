@@ -1,0 +1,30 @@
+The Walker Fall Detection Data Set is a curated compilation of inertial data designed for the study of fall detection systems, specifically for people using walking assistance. This data set offers deep insight into various movement patterns. It covers data from four different classes: idle, motion, step and fall.
+
+
+Data Acquisition
+
+Data was recorded using an IMU affixed to a walker. The IMU used for this project is the Arduino Nano 33 BLE Sense. It's powered by a LiPo battery and is equipped with a voltage regulator and a dedicated battery charging circuit. To ensure durability and protection during the data recording phase, the entire prototype was securely housed in a custom 3D-printed casing.
+
+The prototype was designed to transmit data wirelessly to a computer using Bluetooth Low Energy (BLE). Upon receipt, a Python script processed the incoming data and stored it in JSON format. The data transmission rate was optimized to achieve the highest possible rate, resulting in approximately 100 samples per second, covering both accelerometer and gyroscope data.
+
+Data were collected from four different subjects, each of whom maneuvered the walker down a hallway, primarily capturing step and movement data. It is important to note that the “idle” data are not subject-specific, as it represents periods in which the walker is stationary. Similarly, “fall” data is also not linked to any particular individual; was obtained by deliberately pushing the walker from a vertical position to the ground.
+
+Data Processing
+	This dataset contains four classes:
+		Idle: Represents periods of no movement, indicating that the walker is stationary.
+		Step: Capture moments when an individual takes a step using the walker.
+		Movement: Covers any movement that is not considered a step or a fall, such as when carrying 			the walker or adjusting its position.
+		Fall: Denotes cases in which the walker tips over and falls to the ground from an upright 			position.
+
+To effectively categorize the data, several processing steps were executed. Initially, the data was reduced from its original 100 samples per second to ensure a constant time step between samples, since the original rate was not uniformly constant. After this, both the acceleration and gyro data were normalized to one sample every 12.5 milliseconds, resulting in a rate of 80 samples per second. This normalization allowed the synchronization of acceleration and gyroscope data, which were subsequently stored in dictionaries in JSON format. Each dictionary contains the six dimensions (three acceleration and three gyro) corresponding to a specific timestamp.
+
+To distinguish individual samples within each group, the root mean square (RMS) value of the six dimensions (comprising acceleration and gyroscope data) was calculated. Subsequently, an algorithm based on the hidden Markov model (HMM) was used to discern the hidden states inherent in the data, which facilitated the segmentation of the data set.
+
+Through the filtering process, the HMM effectively identifies individual steps. Once all steps were identified, the window size was determined based on the duration of each step. A window size of 160 samples was chosen, which, given a rate of 80 samples per second, is equivalent to a duration of 2 seconds for each sample.
+
+A similar procedure is employed to extract "fall" samples. However, for "idle" and "motion" samples, isolation isn't necessary. Instead, samples from these categories can be arbitrarily chosen from the recorded clusters.
+
+Final Dataset
+	The finalized dataset is presented in CSV format. The first column serves as the label column and 	covers all four classes. In addition to this, the CSV file has 960 columns of functions. These 	columns encapsulate 160 samples each of acceleration and gyro data in the x, y, and z axes.
+
+	Each class contains 620 samples, bringing the overall total to 2480 samples across all classes.
