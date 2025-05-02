@@ -27,4 +27,4 @@ idle_gy_z_df  = idle_matrix.loc[idle_matrix.index.str.startswith('gy_z'), :]
 #gy_x_df.to_excel(r".\Dataset\gy_x_samples.xlsx")
 #gy_y_df.to_excel(r".\Dataset\gy_y_samples.xlsx")
 #gy_z_df.to_excel(r".\Dataset\gy_z_samples.xlsx")
-plot_time_and_spectrum(idle_acc_x_df, fs=80.0, max_cols=5)
+plot_signals(idle_acc_x_df, fs=80.0, max_cols=5)
