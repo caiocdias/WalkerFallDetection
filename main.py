@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import skew, kurtosis, pearsonr
 import matplotlib.pyplot as plt
+import os
 
 def plot_signals(df: pd.DataFrame, max_cols: int = None, fs: float = 80.0, nome: str = None):
     df_numeric = df.select_dtypes(include=[np.number])
@@ -123,6 +124,7 @@ if __name__ == "__main__":
                 result_corr = result.corr()
 
                 # Exporta para Excel com duas abas
+                os.makedirs("./export", exist_ok=True)
                 arquivo = f"./export/result_{prefixo}.xlsx"
                 with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
                     result.to_excel(writer, sheet_name="result")
