@@ -4,11 +4,10 @@ from scipy.stats import skew, kurtosis, pearsonr
 import matplotlib.pyplot as plt
 import os
 
-def plot_signals(df: pd.DataFrame, max_cols: int = None, fs: float = 80.0, nome: str = None):
+def plot_signals(df: pd.DataFrame, fs: float = 80.0, nome: str = None):
     df_numeric = df.select_dtypes(include=[np.number])
 
-    cols_to_plot = df_numeric.columns[:max_cols] if max_cols is not None else df_numeric.columns
-    print(cols_to_plot)
+    cols_to_plot = df_numeric.columns
     n_samples = df_numeric.shape[0]
     t = np.arange(n_samples) / fs
 
@@ -24,11 +23,10 @@ def plot_signals(df: pd.DataFrame, max_cols: int = None, fs: float = 80.0, nome:
     plt.tight_layout()
     plt.show()
 
-def plot_fft(df: pd.DataFrame, max_cols: int = None, fs: float = 80.0, nome: str = None):
+def plot_fft(df: pd.DataFrame, fs: float = 80.0, nome: str = None):
     df_numeric = df.select_dtypes(include=[np.number])
 
-    cols_to_plot = df_numeric.columns[:max_cols] if max_cols is not None else df_numeric.columns
-
+    cols_to_plot = df_numeric.columns
     n = df_numeric.shape[0]
     freqs = np.fft.rfftfreq(n, d=1/fs)
 
@@ -46,7 +44,32 @@ def plot_fft(df: pd.DataFrame, max_cols: int = None, fs: float = 80.0, nome: str
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-    
+
+def plot_attributes(df, nome: str = None, figsize=(10, 6), exclude: list[str] = None):
+    exclude = exclude or []
+
+    sensors = df.index.astype(str)
+    x = np.arange(len(sensors))
+
+    plt.figure(figsize=figsize)
+    for atributo in df.columns:
+        if atributo in exclude:
+            continue
+        plt.scatter(x, df[atributo], s=50, label=atributo)
+
+    # Configurações dos eixos e legendas
+    plt.xticks(x, sensors, rotation=45, ha='right')
+    plt.xlabel('Sensor')
+    plt.ylabel('Valor do Atributo')
+    titulo = 'Atributos por Sensor'
+    if nome:
+        titulo += f' – {nome}'
+    plt.title(titulo)
+    plt.legend(loc='best')
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.show()
+
 def extrair_atributos(df: pd.DataFrame) -> pd.DataFrame:
     """
     Extrai atributos estatísticos de um DataFrame onde cada coluna é um sinal.
@@ -81,7 +104,7 @@ def preparar_matrizes(idle_dados, motion_dados):
 
     return idle_matrix, motion_matrix
 
-def processar_sinal(idle_matrix, motion_matrix, prefixo, colunas_selecionadas, freq_amostragem):
+def processar_sinal(idle_matrix, motion_matrix, prefixo, colunas_selecionadas, freq_amostragem, flag_plotar_sinais, flag_plotar_espectro):
     """Processa um tipo específico de sinal (acc ou gy)."""
     motion_df = motion_matrix.loc[motion_matrix.index.str.startswith(prefixo), :]
     idle_df = idle_matrix.loc[idle_matrix.index.str.startswith(prefixo), :]
@@ -90,16 +113,22 @@ def processar_sinal(idle_matrix, motion_matrix, prefixo, colunas_selecionadas, f
     combined_df = combined_df[colunas_selecionadas]
 
     atributos = extrair_atributos(combined_df)
+
+
+    if flag_plotar_sinais == 1:
+        plot_signals(combined_df, fs=freq_amostragem, nome=prefixo)
+    if flag_plotar_espectro == 1:
+        plot_fft(combined_df, fs=freq_amostragem, nome=prefixo)
+
     return atributos
-
-    #plot_signals(combined_df, fs=FREQ_AMOSTRAGEM, max_cols=6, nome=prefixo)
-    #plot_fft(combined_df, fs=FREQ_AMOSTRAGEM, max_cols=6, nome=prefixo)
-
-    #return combined_df
 
 if __name__ == "__main__":
     try:
         amostra_tamanho = int(input("Digite o tamanho da amostra: "))
+        flag_plotar_sinais = int(input("Deseja plotar os sinais? (1 - Sim, 0 - Não): "))
+        flag_plotar_espectro = int(input("Deseja plotar os espectros de frequência? (1 - Sim, 0 - Não): "))
+        flag_plotar_atributos = int(input("Deseja plotar os dados dos atributos? (1 - Sim, 0 - Não): "))
+
         colunas_selecionadas = [f'motion{i}' for i in range(0, amostra_tamanho)] + [f'idle{i}' for i in range(0, amostra_tamanho)]
         freq_amostragem = 80.0
         prefixos_sensores = {
@@ -117,10 +146,12 @@ if __name__ == "__main__":
                 atributos = processar_sinal(
                     idle_matrix, motion_matrix,
                     prefixo, colunas_selecionadas,
-                    freq_amostragem
+                    freq_amostragem, flag_plotar_sinais, flag_plotar_espectro
                 )
                 result = pd.DataFrame(atributos)
 
+                if flag_plotar_atributos == 1:
+                    plot_attributes(result, nome=f"{prefixo}", exclude=["energia"])
                 result_corr = result.corr()
 
                 # Exporta para Excel com duas abas
