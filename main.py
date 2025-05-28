@@ -119,8 +119,6 @@ if __name__ == "__main__":
             )
             result = pd.DataFrame(atributos)
 
-            # Calcula fdr
-            # Calcula matriz de correlação
             result_corr = result.corr()
 
             # Exporta para Excel com duas abas
