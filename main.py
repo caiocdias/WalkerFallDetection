@@ -62,82 +62,57 @@ def extrair_atributos(df: pd.DataFrame) -> pd.DataFrame:
     }
     return pd.DataFrame(atributos)
 
+def carregar_dados(caminho_arquivo, amostra_tamanho):
+    """Carrega e prepara os dados iniciais do dataset."""
+    dataset_raw = pd.read_csv(caminho_arquivo)
+    idle = dataset_raw[dataset_raw['label'] == 'idle'].iloc[:amostra_tamanho, 1:].reset_index(drop=True)
+    motion = dataset_raw[dataset_raw['label'] == 'motion'].iloc[:amostra_tamanho, 1:].reset_index(drop=True)
 
-dataset_raw = pd.read_csv(r"./Dataset/full_dataset.csv")
+    return preparar_matrizes(idle, motion)
 
-idle_samples  = dataset_raw[dataset_raw['label'] == 'idle'].iloc[:500, 1:].reset_index(drop=True)
-motion_samples = dataset_raw[dataset_raw['label'] == 'motion'].iloc[:500, 1:].reset_index(drop=True)
+def preparar_matrizes(idle_dados, motion_dados):
+    """Prepara as matrizes de dados idle e motion."""
+    idle_matrix = idle_dados.T
+    motion_matrix = motion_dados.T
 
-idle_matrix   = idle_samples.T
-motion_matrix = motion_samples.T
+    idle_matrix.columns = [f"idle{i}" for i in idle_matrix.columns]
+    motion_matrix.columns = [f"motion{j}" for j in motion_matrix.columns]
 
-idle_matrix.columns   = [f"idle{i}" for i in idle_matrix.columns]
-motion_matrix.columns = [f"motion{j}" for j in motion_matrix.columns]
+    return idle_matrix, motion_matrix
 
-prefixes = ['acc_x', 'acc_y', 'acc_z', 'gy_x', 'gy_y', 'gy_z']
+def processar_sinal(idle_matrix, motion_matrix, prefixo, colunas_selecionadas, freq_amostragem):
+    """Processa um tipo específico de sinal (acc ou gy)."""
+    motion_df = motion_matrix.loc[motion_matrix.index.str.startswith(prefixo), :]
+    idle_df = idle_matrix.loc[idle_matrix.index.str.startswith(prefixo), :]
 
-idle_acc_x_df = idle_matrix.loc[idle_matrix.index.str.startswith('acc_x'), :]
-idle_acc_y_df = idle_matrix.loc[idle_matrix.index.str.startswith('acc_y'), :]
-idle_acc_z_df = idle_matrix.loc[idle_matrix.index.str.startswith('acc_z'), :]
-idle_gy_x_df  = idle_matrix.loc[idle_matrix.index.str.startswith('gy_x'), :]
-idle_gy_y_df  = idle_matrix.loc[idle_matrix.index.str.startswith('gy_y'), :]
-idle_gy_z_df  = idle_matrix.loc[idle_matrix.index.str.startswith('gy_z'), :]
+    combined_df = pd.concat([motion_df, idle_df], axis=1)
+    combined_df = combined_df[colunas_selecionadas]
 
-motion_acc_x_df = motion_matrix.loc[motion_matrix.index.str.startswith('acc_x'), :]
-motion_acc_y_df = motion_matrix.loc[motion_matrix.index.str.startswith('acc_y'), :]
-motion_acc_z_df = motion_matrix.loc[motion_matrix.index.str.startswith('acc_z'), :]
-motion_gy_x_df = motion_matrix.loc[motion_matrix.index.str.startswith('gy_x'), :]
-motion_gy_y_df = motion_matrix.loc[motion_matrix.index.str.startswith('gy_y'), :]
-motion_gy_z_df = motion_matrix.loc[motion_matrix.index.str.startswith('gy_z'), :]
+    atributos = extrair_atributos(combined_df)
+    return atributos
 
-combined_acc_x_df = pd.concat([motion_acc_x_df, idle_acc_x_df], axis=1)
-combined_acc_x_df = combined_acc_x_df[['motion1', 'motion2', 'motion3', 'idle1', 'idle2', 'idle3']]
+    #plot_signals(combined_df, fs=FREQ_AMOSTRAGEM, max_cols=6, nome=prefixo)
+    #plot_fft(combined_df, fs=FREQ_AMOSTRAGEM, max_cols=6, nome=prefixo)
 
-atributos_acc_x = extrair_atributos(combined_acc_x_df)
-print(atributos_acc_x)
+    #return combined_df
 
-combined_acc_y_df = pd.concat([motion_acc_y_df, idle_acc_y_df], axis=1)
-combined_acc_y_df = combined_acc_y_df[['motion1', 'motion2', 'motion3', 'idle1', 'idle2', 'idle3']]
+if __name__ == "__main__":
+    amostra_tamanho = 500
+    colunas_selecionadas = [f'motion{i}' for i in range(0, 500)] + [f'idle{i}' for i in range(0, 500)]
+    freq_amostragem = 80.0
+    prefixos_sensores = {
+        'acc': ['acc_x', 'acc_y', 'acc_z'],
+        'gy': ['gy_x', 'gy_y', 'gy_z']
+    }
 
-atributos_acc_y = extrair_atributos(combined_acc_y_df)
-print(atributos_acc_y)
+    # Carregamento dos dados
+    idle_matrix, motion_matrix = carregar_dados("./Dataset/full_dataset.csv", amostra_tamanho)
 
-combined_acc_z_df = pd.concat([motion_acc_z_df, idle_acc_z_df], axis=1)
-combined_acc_z_df = combined_acc_z_df[['motion1', 'motion2', 'motion3', 'idle1', 'idle2', 'idle3']]
-
-atributos_acc_z = extrair_atributos(combined_acc_z_df)
-print(atributos_acc_z)
-
-combined_gy_x_df = pd.concat([motion_gy_x_df, idle_gy_x_df], axis=1)
-combined_gy_x_df = combined_gy_x_df[['motion1', 'motion2', 'motion3', 'idle1', 'idle2', 'idle3']]
-
-atributos_gy_x = extrair_atributos(combined_gy_x_df)
-print(atributos_gy_x)
-
-combined_gy_y_df = pd.concat([motion_gy_y_df, idle_gy_y_df], axis=1)
-combined_gy_y_df = combined_gy_y_df[['motion1', 'motion2', 'motion3', 'idle1', 'idle2', 'idle3']]
-
-atributos_gy_y = extrair_atributos(combined_gy_y_df)
-print(atributos_gy_y)
-
-combined_gy_z_df = pd.concat([motion_gy_z_df, idle_gy_z_df], axis=1)
-combined_gy_z_df = combined_gy_z_df[['motion1', 'motion2', 'motion3', 'idle1', 'idle2', 'idle3']]
-
-atributos_gy_z = extrair_atributos(combined_gy_z_df)
-print(atributos_gy_z)
-
-plot_signals(combined_acc_x_df, fs=80.0, max_cols=6, nome='acc_x')
-plot_signals(combined_acc_y_df, fs=80.0, max_cols=6, nome='acc_y')
-plot_signals(combined_acc_z_df, fs=80.0, max_cols=6, nome='acc_z')
-
-plot_signals(combined_gy_x_df, fs=80.0, max_cols=6, nome='gy_x')
-plot_signals(combined_gy_y_df, fs=80.0, max_cols=6, nome='gy_y')
-plot_signals(combined_gy_z_df, fs=80.0, max_cols=6, nome='gy_z')
-
-plot_fft(combined_acc_x_df, fs=80.0, max_cols=6, nome='acc_x')
-plot_fft(combined_acc_y_df, fs=80.0, max_cols=6, nome='acc_y')
-plot_fft(combined_acc_z_df, fs=80.0, max_cols=6, nome='acc_z')
-
-plot_fft(combined_gy_x_df, fs=80.0, max_cols=6, nome='gy_x')
-plot_fft(combined_gy_y_df, fs=80.0, max_cols=6, nome='gy_y')
-plot_fft(combined_gy_z_df, fs=80.0, max_cols=6, nome='gy_z')
+    # Processamento para cada tipo de sensor
+    for tipo_sensor, prefixos in prefixos_sensores.items():
+        for prefixo in prefixos:
+            result = pd.DataFrame()
+            atributos = processar_sinal(idle_matrix, motion_matrix, prefixo, colunas_selecionadas, freq_amostragem)
+            result = pd.concat([result, atributos], axis=1)
+            result = result.corr()
+            result.to_excel(f"result_{tipo_sensor}_{prefixo}.xlsx")
