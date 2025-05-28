@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from scipy.stats import skew, kurtosis
+from scipy.stats import skew, kurtosis, pearsonr
 import matplotlib.pyplot as plt
 
 def plot_signals(df: pd.DataFrame, max_cols: int = None, fs: float = 80.0, nome: str = None):
@@ -111,8 +111,20 @@ if __name__ == "__main__":
     # Processamento para cada tipo de sensor
     for tipo_sensor, prefixos in prefixos_sensores.items():
         for prefixo in prefixos:
-            result = pd.DataFrame()
-            atributos = processar_sinal(idle_matrix, motion_matrix, prefixo, colunas_selecionadas, freq_amostragem)
-            result = pd.concat([result, atributos], axis=1)
-            result = result.corr()
-            result.to_excel(f"result_{tipo_sensor}_{prefixo}.xlsx")
+            # Processa sinais e monta DataFrame
+            atributos = processar_sinal(
+                idle_matrix, motion_matrix,
+                prefixo, colunas_selecionadas,
+                freq_amostragem
+            )
+            result = pd.DataFrame(atributos)
+
+            # Calcula fdr
+            # Calcula matriz de correlação
+            result_corr = result.corr()
+
+            # Exporta para Excel com duas abas
+            arquivo = f"result_{prefixo}.xlsx"
+            with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
+                result.to_excel(writer, sheet_name="result", index=False)
+                result_corr.to_excel(writer, sheet_name="result_corr", index=False)
