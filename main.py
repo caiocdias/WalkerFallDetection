@@ -97,32 +97,37 @@ def processar_sinal(idle_matrix, motion_matrix, prefixo, colunas_selecionadas, f
     #return combined_df
 
 if __name__ == "__main__":
-    amostra_tamanho = 500
-    colunas_selecionadas = [f'motion{i}' for i in range(0, 500)] + [f'idle{i}' for i in range(0, 500)]
-    freq_amostragem = 80.0
-    prefixos_sensores = {
-        'acc': ['acc_x', 'acc_y', 'acc_z'],
-        'gy': ['gy_x', 'gy_y', 'gy_z']
-    }
+    try:
+        amostra_tamanho = int(input("Digite o tamanho da amostra: "))
+        colunas_selecionadas = [f'motion{i}' for i in range(0, amostra_tamanho)] + [f'idle{i}' for i in range(0, amostra_tamanho)]
+        freq_amostragem = 80.0
+        prefixos_sensores = {
+            'acc': ['acc_x', 'acc_y', 'acc_z'],
+            'gy': ['gy_x', 'gy_y', 'gy_z']
+        }
 
-    # Carregamento dos dados
-    idle_matrix, motion_matrix = carregar_dados("./Dataset/full_dataset.csv", amostra_tamanho)
+        # Carregamento dos dados
+        idle_matrix, motion_matrix = carregar_dados("./Dataset/full_dataset.csv", amostra_tamanho)
 
-    # Processamento para cada tipo de sensor
-    for tipo_sensor, prefixos in prefixos_sensores.items():
-        for prefixo in prefixos:
-            # Processa sinais e monta DataFrame
-            atributos = processar_sinal(
-                idle_matrix, motion_matrix,
-                prefixo, colunas_selecionadas,
-                freq_amostragem
-            )
-            result = pd.DataFrame(atributos)
+        # Processamento para cada tipo de sensor
+        for tipo_sensor, prefixos in prefixos_sensores.items():
+            for prefixo in prefixos:
+                # Processa sinais e monta DataFrame
+                atributos = processar_sinal(
+                    idle_matrix, motion_matrix,
+                    prefixo, colunas_selecionadas,
+                    freq_amostragem
+                )
+                result = pd.DataFrame(atributos)
 
-            result_corr = result.corr()
+                result_corr = result.corr()
 
-            # Exporta para Excel com duas abas
-            arquivo = f"result_{prefixo}.xlsx"
-            with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
-                result.to_excel(writer, sheet_name="result", index=False)
-                result_corr.to_excel(writer, sheet_name="result_corr", index=False)
+                # Exporta para Excel com duas abas
+                arquivo = f"./export/result_{prefixo}.xlsx"
+                with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
+                    result.to_excel(writer, sheet_name="result")
+                    result_corr.to_excel(writer, sheet_name="result_corr")
+        print("Processamento concluído. Arquivos exportados com sucesso para ./export/")
+
+    except Exception as e:
+        print(f"Erro ao processar os dados: {e}")
