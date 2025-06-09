@@ -99,8 +99,8 @@ def preparar_matrizes(idle_dados, motion_dados):
     idle_matrix = idle_dados.T
     motion_matrix = motion_dados.T
 
-    idle_matrix.columns = [f"idle{i}" for i in idle_matrix.columns]
-    motion_matrix.columns = [f"motion{j}" for j in motion_matrix.columns]
+    idle_matrix.columns = [f"i{i}" for i in idle_matrix.columns]
+    motion_matrix.columns = [f"m{j}" for j in motion_matrix.columns]
 
     return idle_matrix, motion_matrix
 
@@ -129,7 +129,7 @@ if __name__ == "__main__":
         flag_plotar_espectro = int(input("Deseja plotar os espectros de frequência? (1 - Sim, 0 - Não): "))
         flag_plotar_atributos = int(input("Deseja plotar os dados dos atributos? (1 - Sim, 0 - Não): "))
 
-        colunas_selecionadas = [f'motion{i}' for i in range(0, amostra_tamanho)] + [f'idle{i}' for i in range(0, amostra_tamanho)]
+        colunas_selecionadas = [f'm{i}' for i in range(0, amostra_tamanho)] + [f'i{i}' for i in range(0, amostra_tamanho)]
         freq_amostragem = 80.0
         prefixos_sensores = {
             'acc': ['acc_x', 'acc_y', 'acc_z'],
@@ -151,7 +151,7 @@ if __name__ == "__main__":
                 result = pd.DataFrame(atributos)
 
                 if flag_plotar_atributos == 1:
-                    plot_attributes(result, nome=f"{prefixo}", exclude=["energia"])
+                    plot_attributes(result, nome=f"{prefixo}", exclude=['energia'])
                 result_corr = result.corr()
 
                 # Exporta para Excel com duas abas
