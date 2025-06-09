@@ -3,6 +3,7 @@ import numpy as np
 from scipy.stats import skew, kurtosis, pearsonr
 import matplotlib.pyplot as plt
 import os
+import seaborn as sns
 
 def plot_signals(df: pd.DataFrame, fs: float = 80.0, nome: str = None):
     df_numeric = df.select_dtypes(include=[np.number])
@@ -122,45 +123,108 @@ def processar_sinal(idle_matrix, motion_matrix, prefixo, colunas_selecionadas, f
 
     return atributos
 
+def correlacao_geral(prefixos_sensores):
+    result_acc_x = pd.read_excel("./export/result_acc_x.xlsx", sheet_name="result", index_col=0)
+    result_acc_y = pd.read_excel("./export/result_acc_y.xlsx", sheet_name="result", index_col=0)
+    result_acc_z = pd.read_excel("./export/result_acc_z.xlsx", sheet_name="result", index_col=0)
+    result_gy_x = pd.read_excel("./export/result_gy_x.xlsx", sheet_name="result", index_col=0)
+    result_gy_y = pd.read_excel("./export/result_gy_y.xlsx", sheet_name="result", index_col=0)
+    result_gy_z = pd.read_excel("./export/result_gy_z.xlsx", sheet_name="result", index_col=0)
+
+    result_acc_x.columns = [f"{column}_accx" for column in result_acc_x.columns]
+    result_acc_y.columns = [f"{column}_accy" for column in result_acc_y.columns]
+    result_acc_z.columns = [f"{column}_accz" for column in result_acc_z.columns]
+    result_gy_x.columns = [f"{column}_gyx" for column in result_gy_x.columns]
+    result_gy_y.columns = [f"{column}_gyy" for column in result_gy_y.columns]
+    result_gy_z.columns = [f"{column}_gyz" for column in result_gy_z.columns]
+
+    result_general = pd.concat([result_acc_x, result_acc_y, result_acc_z, result_gy_x, result_gy_y, result_gy_z], axis=1)
+    result_general_corr = result_general.corr()
+
+    with pd.ExcelWriter(r"./export/result_general.xlsx", engine="openpyxl") as writer:
+        result_general.to_excel(writer, sheet_name="result")
+        result_general_corr.to_excel(writer, sheet_name="result_corr")
+
+    plot_correlation_heatmap(result_general_corr, title='Matriz de Correlação Geral dos Atributos de Sensores')
+
+
+def plot_correlation_heatmap(corr_matrix: pd.DataFrame, title: str = 'Matriz de Correlação'):
+    """
+    Plota um heatmap visualmente agradável de uma matriz de correlação.
+
+    Args:
+        corr_matrix (pd.DataFrame): A matriz de correlação a ser plotada.
+        title (str): O título do gráfico.
+    """
+    # Configura o tamanho da figura para acomodar a matriz grande
+    plt.figure(figsize=(24, 20))
+
+    # Cria uma máscara para o triângulo superior da matriz, pois a matriz é simétrica.
+    # Isso remove informação redundante e limpa a visualização.
+    mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
+
+    # Escolhe um mapa de cores divergente. 'coolwarm' ou 'vlag' são ótimos para correlação,
+    # pois centram em 0 e usam cores distintas para valores positivos e negativos.
+    cmap = 'coolwarm'
+
+    # Plota o heatmap com seaborn
+    sns.heatmap(corr_matrix,
+                mask=mask,
+                cmap=cmap,
+                vmax=1.0,
+                vmin=-1.0,
+                center=0,
+                linewidths=.5, # Adiciona linhas finas entre as células
+                cbar_kws={"shrink": .75}) # Ajusta o tamanho da barra de cores
+
+    plt.title(title, fontsize=20)
+    plt.xticks(rotation=45, ha='right', fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.tight_layout(pad=2.0) # Ajusta o layout para evitar sobreposição de texto
+    plt.show()
+
 if __name__ == "__main__":
-    try:
-        amostra_tamanho = int(input("Digite o tamanho da amostra: "))
-        flag_plotar_sinais = int(input("Deseja plotar os sinais? (1 - Sim, 0 - Não): "))
-        flag_plotar_espectro = int(input("Deseja plotar os espectros de frequência? (1 - Sim, 0 - Não): "))
-        flag_plotar_atributos = int(input("Deseja plotar os dados dos atributos? (1 - Sim, 0 - Não): "))
+#try:
+    amostra_tamanho = int(input("Digite o tamanho da amostra: "))
+    flag_plotar_sinais = int(input("Deseja plotar os sinais? (1 - Sim, 0 - Não): "))
+    flag_plotar_espectro = int(input("Deseja plotar os espectros de frequência? (1 - Sim, 0 - Não): "))
+    flag_plotar_atributos = int(input("Deseja plotar os dados dos atributos? (1 - Sim, 0 - Não): "))
 
-        colunas_selecionadas = [f'm{i}' for i in range(0, amostra_tamanho)] + [f'i{i}' for i in range(0, amostra_tamanho)]
-        freq_amostragem = 80.0
-        prefixos_sensores = {
-            'acc': ['acc_x', 'acc_y', 'acc_z'],
-            'gy': ['gy_x', 'gy_y', 'gy_z']
-        }
+    colunas_selecionadas = [f'm{i}' for i in range(0, amostra_tamanho)] + [f'i{i}' for i in range(0, amostra_tamanho)]
+    freq_amostragem = 80.0
+    prefixos_sensores = {
+        'acc': ['acc_x', 'acc_y', 'acc_z'],
+        'gy': ['gy_x', 'gy_y', 'gy_z']
+    }
 
-        # Carregamento dos dados
-        idle_matrix, motion_matrix = carregar_dados("./Dataset/full_dataset.csv", amostra_tamanho)
+    # Carregamento dos dados
+    idle_matrix, motion_matrix = carregar_dados("./Dataset/full_dataset.csv", amostra_tamanho)
 
-        # Processamento para cada tipo de sensor
-        for tipo_sensor, prefixos in prefixos_sensores.items():
-            for prefixo in prefixos:
-                # Processa sinais e monta DataFrame
-                atributos = processar_sinal(
-                    idle_matrix, motion_matrix,
-                    prefixo, colunas_selecionadas,
-                    freq_amostragem, flag_plotar_sinais, flag_plotar_espectro
-                )
-                result = pd.DataFrame(atributos)
+    # Processamento para cada tipo de sensor
+    for tipo_sensor, prefixos in prefixos_sensores.items():
+        for prefixo in prefixos:
+            # Processa sinais e monta DataFrame
+            atributos = processar_sinal(
+                idle_matrix, motion_matrix,
+                prefixo, colunas_selecionadas,
+                freq_amostragem, flag_plotar_sinais, flag_plotar_espectro
+            )
+            result = pd.DataFrame(atributos)
 
-                if flag_plotar_atributos == 1:
-                    plot_attributes(result, nome=f"{prefixo}", exclude=['energia'])
-                result_corr = result.corr()
+            if flag_plotar_atributos == 1:
+                plot_attributes(result, nome=f"{prefixo}", exclude=['energia'])
+            result_corr = result.corr()
 
-                # Exporta para Excel com duas abas
+            # Exporta para Excel com duas abas
+            if not os.path.exists("./export"):
                 os.makedirs("./export", exist_ok=True)
-                arquivo = f"./export/result_{prefixo}.xlsx"
-                with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
-                    result.to_excel(writer, sheet_name="result")
-                    result_corr.to_excel(writer, sheet_name="result_corr")
-        print("Processamento concluído. Arquivos exportados com sucesso para ./export/")
 
-    except Exception as e:
-        print(f"Erro ao processar os dados: {e}")
+            arquivo = f"./export/result_{prefixo}.xlsx"
+            with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
+                result.to_excel(writer, sheet_name="result")
+                result_corr.to_excel(writer, sheet_name="result_corr")
+    correlacao_geral(prefixos_sensores)
+    print("Processamento concluído. Arquivos exportados com sucesso para ./export/")
+
+#except Exception as e:
+  #  print(f"Erro ao processar os dados: {e}")
