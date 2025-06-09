@@ -46,28 +46,28 @@ def plot_fft(df: pd.DataFrame, fs: float = 80.0, nome: str = None):
     plt.tight_layout()
     plt.show()
 
-def plot_attributes(df, nome: str = None, figsize=(10, 6), exclude: list[str] = None):
-    exclude = exclude or []
+def plot_attributes(df, nome: str = None, figsize=(10, 6), include: list[str] = None):
+    include = include or []
 
     sensors = df.index.astype(str)
     x = np.arange(len(sensors))
 
     plt.figure(figsize=figsize)
     for atributo in df.columns:
-        if atributo in exclude:
+        if atributo not in include:
             continue
         plt.scatter(x, df[atributo], s=50, label=atributo)
 
-    # Configurações dos eixos e legendas
-    plt.xticks(x, sensors, rotation=45, ha='right')
-    plt.xlabel('Sensor')
+    plt.xticks([])  # Remove ticks e labels do eixo x
+
+    # Remover o label do eixo x: (não coloque plt.xlabel)
     plt.ylabel('Valor do Atributo')
-    titulo = 'Atributos por Sensor'
+    titulo = 'Atributos'
     if nome:
         titulo += f' – {nome}'
     plt.title(titulo)
     plt.legend(loc='best')
-    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.grid(False)  # Remove o grid
     plt.tight_layout()
     plt.show()
 
@@ -147,7 +147,6 @@ def correlacao_geral(prefixos_sensores):
 
     plot_correlation_heatmap(result_general_corr, title='Matriz de Correlação Geral dos Atributos de Sensores')
 
-
 def plot_correlation_heatmap(corr_matrix: pd.DataFrame, title: str = 'Matriz de Correlação'):
     """
     Plota um heatmap visualmente agradável de uma matriz de correlação.
@@ -212,7 +211,14 @@ if __name__ == "__main__":
             result = pd.DataFrame(atributos)
 
             if flag_plotar_atributos == 1:
-                plot_attributes(result, nome=f"{prefixo}", exclude=['energia'])
+                plot_attributes(result, nome=f"{prefixo}", include=['desvio_padrao'])
+                plot_attributes(result, nome=f"{prefixo}", include=['rms'])
+                plot_attributes(result, nome=f"{prefixo}", include=['energia'])
+                plot_attributes(result, nome=f"{prefixo}", include=['pico_min'])
+                plot_attributes(result, nome=f"{prefixo}", include=['pico_max'])
+                plot_attributes(result, nome=f"{prefixo}", include=['skewness'])
+                plot_attributes(result, nome=f"{prefixo}", include=['kurtosis'])
+                plot_attributes(result, nome=f"{prefixo}", include=['media'])
             result_corr = result.corr()
 
             # Exporta para Excel com duas abas
