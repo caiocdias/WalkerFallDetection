@@ -4,6 +4,8 @@ from scipy.stats import skew, kurtosis, pearsonr
 import matplotlib.pyplot as plt
 import os
 import seaborn as sns
+import math
+
 
 def plot_signals(df: pd.DataFrame, fs: float = 80.0, nome: str = None):
     df_numeric = df.select_dtypes(include=[np.number])
@@ -123,7 +125,7 @@ def processar_sinal(idle_matrix, motion_matrix, prefixo, colunas_selecionadas, f
 
     return atributos
 
-def correlacao_geral(prefixos_sensores):
+def correlacao_geral_fdr(flag_plotar_correlacao, amostra_tamanho):
     result_acc_x = pd.read_excel("./export/result_acc_x.xlsx", sheet_name="result", index_col=0)
     result_acc_y = pd.read_excel("./export/result_acc_y.xlsx", sheet_name="result", index_col=0)
     result_acc_z = pd.read_excel("./export/result_acc_z.xlsx", sheet_name="result", index_col=0)
@@ -139,31 +141,48 @@ def correlacao_geral(prefixos_sensores):
     result_gy_z.columns = [f"{column}_gyz" for column in result_gy_z.columns]
 
     result_general = pd.concat([result_acc_x, result_acc_y, result_acc_z, result_gy_x, result_gy_y, result_gy_z], axis=1)
+
+    valores_target = [-1] * amostra_tamanho + [1] * amostra_tamanho
+    result_general['target'] = valores_target
+
     result_general_corr = result_general.corr()
+
+    result_corr_tratado = remover_atributos_correlacionados(result_general_corr, threshold=0.5)
 
     with pd.ExcelWriter(r"./export/result_general.xlsx", engine="openpyxl") as writer:
         result_general.to_excel(writer, sheet_name="result")
         result_general_corr.to_excel(writer, sheet_name="result_corr")
+        result_corr_tratado.to_excel(writer, sheet_name="result_corr_tratado")
 
-    plot_correlation_heatmap(result_general_corr, title='Matriz de Correlação Geral dos Atributos de Sensores')
+    fdr_df = pd.DataFrame(columns=['Atributo', 'Valor'])
+
+    for column in result_general_corr.columns:
+        motion_results = result_general[result_general.index.str.startswith('m')]
+        idle_results = result_general[result_general.index.str.startswith('i')]
+
+        avg_motion = motion_results[column].mean()
+        avg_idle = idle_results[column].mean()
+
+        std_deviation_motion = motion_results[column].std()
+        std_deviation_idle = idle_results[column].std()
+
+        fdr = pow(avg_motion - avg_idle, 2) / (pow(std_deviation_motion, 2) + pow(std_deviation_idle, 2))
+        fdr_df.loc[len(fdr_df)] = {'Atributo': str(column).strip("'"), 'Valor': float(fdr)}
+
+    fdr_df.to_excel(r"./export/fdr.xlsx", index=False)
+
+    if flag_plotar_correlacao == 1:
+        plot_correlation_heatmap(result_general_corr, title='Matriz de Correlação Geral dos Atributos de Sensores')
+        plot_correlation_heatmap(result_corr_tratado, title='Matriz de Correlação Tratada dos Atributos de Sensores')
+
+    return result_general, fdr_df
 
 def plot_correlation_heatmap(corr_matrix: pd.DataFrame, title: str = 'Matriz de Correlação'):
-    """
-    Plota um heatmap visualmente agradável de uma matriz de correlação.
 
-    Args:
-        corr_matrix (pd.DataFrame): A matriz de correlação a ser plotada.
-        title (str): O título do gráfico.
-    """
-    # Configura o tamanho da figura para acomodar a matriz grande
     plt.figure(figsize=(24, 20))
 
-    # Cria uma máscara para o triângulo superior da matriz, pois a matriz é simétrica.
-    # Isso remove informação redundante e limpa a visualização.
     mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
 
-    # Escolhe um mapa de cores divergente. 'coolwarm' ou 'vlag' são ótimos para correlação,
-    # pois centram em 0 e usam cores distintas para valores positivos e negativos.
     cmap = 'coolwarm'
 
     # Plota o heatmap com seaborn
@@ -182,12 +201,28 @@ def plot_correlation_heatmap(corr_matrix: pd.DataFrame, title: str = 'Matriz de 
     plt.tight_layout(pad=2.0) # Ajusta o layout para evitar sobreposição de texto
     plt.show()
 
+def remover_atributos_correlacionados(corr_matrix, threshold):
+    corr_matrix_copy = corr_matrix.copy()
+
+    colunas_para_remover = set()
+
+    for i in range(len(corr_matrix_copy.columns)):
+        for j in range(i):
+            if abs(corr_matrix_copy.iloc[i, j]) > threshold:
+                nome_coluna = corr_matrix_copy.columns[i]
+                colunas_para_remover.add(nome_coluna)
+
+    nova_corr_matrix = corr_matrix_copy.drop(list(colunas_para_remover), axis=1)
+    nova_corr_matrix = nova_corr_matrix.drop(list(colunas_para_remover), axis=0)
+
+    return nova_corr_matrix
+
 if __name__ == "__main__":
-#try:
     amostra_tamanho = int(input("Digite o tamanho da amostra: "))
     flag_plotar_sinais = int(input("Deseja plotar os sinais? (1 - Sim, 0 - Não): "))
     flag_plotar_espectro = int(input("Deseja plotar os espectros de frequência? (1 - Sim, 0 - Não): "))
     flag_plotar_atributos = int(input("Deseja plotar os dados dos atributos? (1 - Sim, 0 - Não): "))
+    flag_plotar_correlacao = int(input("Deseja plotar a matriz de correlação? (1 - Sim, 0 - Não): "))
 
     colunas_selecionadas = [f'm{i}' for i in range(0, amostra_tamanho)] + [f'i{i}' for i in range(0, amostra_tamanho)]
     freq_amostragem = 80.0
@@ -229,8 +264,6 @@ if __name__ == "__main__":
             with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
                 result.to_excel(writer, sheet_name="result")
                 result_corr.to_excel(writer, sheet_name="result_corr")
-    correlacao_geral(prefixos_sensores)
-    print("Processamento concluído. Arquivos exportados com sucesso para ./export/")
 
-#except Exception as e:
-  #  print(f"Erro ao processar os dados: {e}")
+    result_geral, fdr_df = correlacao_geral_fdr(flag_plotar_correlacao, amostra_tamanho)
+    print("Processamento concluído. Arquivos exportados com sucesso para ./export/")
