@@ -1,10 +1,9 @@
 import pandas as pd
 import numpy as np
-from scipy.stats import skew, kurtosis, pearsonr
+from scipy.stats import skew, kurtosis
 import matplotlib.pyplot as plt
 import os
 import seaborn as sns
-import math
 
 
 def plot_signals(df: pd.DataFrame, fs: float = 80.0, nome: str = None):
@@ -60,23 +59,19 @@ def plot_attributes(df, nome: str = None, figsize=(10, 6), include: list[str] = 
             continue
         plt.scatter(x, df[atributo], s=50, label=atributo)
 
-    plt.xticks([])  # Remove ticks e labels do eixo x
+    plt.xticks([])
 
-    # Remover o label do eixo x: (não coloque plt.xlabel)
     plt.ylabel('Valor do Atributo')
     titulo = 'Atributos'
     if nome:
         titulo += f' – {nome}'
     plt.title(titulo)
     plt.legend(loc='best')
-    plt.grid(False)  # Remove o grid
+    plt.grid(False)
     plt.tight_layout()
     plt.show()
 
 def extrair_atributos(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Extrai atributos estatísticos de um DataFrame onde cada coluna é um sinal.
-    """
     atributos = {
         'pico_max': df.max(),
         'pico_min': df.min(),
@@ -90,7 +85,6 @@ def extrair_atributos(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(atributos)
 
 def carregar_dados(caminho_arquivo, amostra_tamanho):
-    """Carrega e prepara os dados iniciais do dataset."""
     dataset_raw = pd.read_csv(caminho_arquivo)
     idle = dataset_raw[dataset_raw['label'] == 'idle'].iloc[:amostra_tamanho, 1:].reset_index(drop=True)
     motion = dataset_raw[dataset_raw['label'] == 'motion'].iloc[:amostra_tamanho, 1:].reset_index(drop=True)
@@ -98,7 +92,6 @@ def carregar_dados(caminho_arquivo, amostra_tamanho):
     return preparar_matrizes(idle, motion)
 
 def preparar_matrizes(idle_dados, motion_dados):
-    """Prepara as matrizes de dados idle e motion."""
     idle_matrix = idle_dados.T
     motion_matrix = motion_dados.T
 
@@ -108,7 +101,6 @@ def preparar_matrizes(idle_dados, motion_dados):
     return idle_matrix, motion_matrix
 
 def processar_sinal(idle_matrix, motion_matrix, prefixo, colunas_selecionadas, freq_amostragem, flag_plotar_sinais, flag_plotar_espectro):
-    """Processa um tipo específico de sinal (acc ou gy)."""
     motion_df = motion_matrix.loc[motion_matrix.index.str.startswith(prefixo), :]
     idle_df = idle_matrix.loc[idle_matrix.index.str.startswith(prefixo), :]
 
@@ -231,13 +223,10 @@ if __name__ == "__main__":
         'gy': ['gy_x', 'gy_y', 'gy_z']
     }
 
-    # Carregamento dos dados
     idle_matrix, motion_matrix = carregar_dados("./Dataset/full_dataset.csv", amostra_tamanho)
 
-    # Processamento para cada tipo de sensor
     for tipo_sensor, prefixos in prefixos_sensores.items():
         for prefixo in prefixos:
-            # Processa sinais e monta DataFrame
             atributos = processar_sinal(
                 idle_matrix, motion_matrix,
                 prefixo, colunas_selecionadas,
@@ -256,7 +245,6 @@ if __name__ == "__main__":
                 plot_attributes(result, nome=f"{prefixo}", include=['media'])
             result_corr = result.corr()
 
-            # Exporta para Excel com duas abas
             if not os.path.exists("./export"):
                 os.makedirs("./export", exist_ok=True)
 
