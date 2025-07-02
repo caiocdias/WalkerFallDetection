@@ -4,6 +4,14 @@ from scipy.stats import skew, kurtosis
 import matplotlib.pyplot as plt
 import os
 import seaborn as sns
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.neural_network import MLPClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 
 
 def plot_signals(df: pd.DataFrame, fs: float = 80.0, nome: str = None):
@@ -167,7 +175,9 @@ def correlacao_geral_fdr(flag_plotar_correlacao, amostra_tamanho):
         plot_correlation_heatmap(result_general_corr, title='Matriz de Correlação Geral dos Atributos de Sensores')
         plot_correlation_heatmap(result_corr_tratado, title='Matriz de Correlação Tratada dos Atributos de Sensores')
 
-    return result_general, fdr_df
+    result_general_tratado = result_general[result_corr_tratado.columns]
+
+    return result_general, fdr_df, result_general_tratado
 
 def plot_correlation_heatmap(corr_matrix: pd.DataFrame, title: str = 'Matriz de Correlação'):
 
@@ -208,6 +218,64 @@ def remover_atributos_correlacionados(corr_matrix, threshold):
     nova_corr_matrix = nova_corr_matrix.drop(list(colunas_para_remover), axis=0)
 
     return nova_corr_matrix
+
+def normalizar_para_treino(normalizar_para_treino):
+    x = normalizar_para_treino.drop(['target'], axis=1)
+    y = normalizar_para_treino['target']
+
+    scaler = StandardScaler()
+    x_scaled = scaler.fit_transform(x)
+
+    x_train, x_val, y_train, y_val = train_test_split(x_scaled, y, test_size=0.2, random_state=42)
+    return x_train, x_val, y_train, y_val
+
+def treinar_modelos(X_train, y_train):
+    # Define os modelos de classificação que serão utilizados
+    modelos = {
+        'LogisticRegression': LogisticRegression(max_iter=1000, random_state=42),
+        # Modelo de regressão logística com 1000 iterações
+        'SVM': SVC(kernel='rbf', probability=True, random_state=42),
+        # Modelo SVM com kernel RBF e probabilidade habilitada
+        'MLP': MLPClassifier(hidden_layer_sizes=(100,), max_iter=500, random_state=42)
+        # Rede neural com 1 camada oculta de 100 neurônios
+    }
+
+    # Dicionário para armazenar os pipelines treinados
+    pipelines = {}
+    for nome, clf in modelos.items():
+        # Cria um pipeline que primeiro preenche os valores ausentes com a média da coluna
+        # e depois treina o classificador.
+        pipeline = Pipeline(steps=[
+            ('imputer', SimpleImputer(strategy='mean')),  # Imputa valores faltantes com a média
+            ('classifier', clf)  # Aplica o classificador
+        ])
+
+        # Treina o pipeline completo com os dados de treino.
+        pipeline.fit(X_train, y_train)  # Ajusta o modelo aos dados de treinamento
+        print(f" → {nome} treinado")  # Imprime mensagem de confirmação
+        pipelines[nome] = pipeline  # Armazena o pipeline treinado no dicionário
+
+    return pipelines
+
+def avaliar_modelos(modelos, X_val, y_val):
+    for nome, clf in modelos.items():
+        y_pred = clf.predict(X_val)
+        acc = accuracy_score(y_val, y_pred)
+        print(f"\n=== {nome} ===")
+        print(f"Acurácia: {acc:.3f}")
+        print(classification_report(y_val, y_pred, target_names=['idle','motion']))
+
+        # plot da matriz de confusão
+        cm = confusion_matrix(y_val, y_pred)
+        plt.figure(figsize=(4,3))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+                    xticklabels=['idle','motion'],
+                    yticklabels=['idle','motion'])
+        plt.title(f"{nome} — Matriz de Confusão")
+        plt.xlabel("Previsto")
+        plt.ylabel("Verdadeiro")
+        plt.tight_layout()
+        plt.show()
 
 if __name__ == "__main__":
     amostra_tamanho = int(input("Digite o tamanho da amostra: "))
@@ -253,5 +321,15 @@ if __name__ == "__main__":
                 result.to_excel(writer, sheet_name="result")
                 result_corr.to_excel(writer, sheet_name="result_corr")
 
-    result_geral, fdr_df = correlacao_geral_fdr(flag_plotar_correlacao, amostra_tamanho)
-    print("Processamento concluído. Arquivos exportados com sucesso para ./export/")
+    result_geral, fdr_df, result_geral_tratado = correlacao_geral_fdr(flag_plotar_correlacao, amostra_tamanho)
+    result_geral_tratado.to_excel(r"./export/result_geral_tratado.xlsx")
+    result_geral_tratado['target'] = [0] * amostra_tamanho + [1] * amostra_tamanho
+
+    x_train, x_val, y_train, y_val = normalizar_para_treino(result_geral_tratado)
+
+    modelos = treinar_modelos(x_train, y_train)
+    avaliar_modelos(modelos, x_val, y_val)
+
+    for nome, clf in modelos.items():
+        scores = cross_val_score(clf, x_train, y_train, cv=5, scoring='accuracy', n_jobs=-1)
+        print(f"{nome} — CV Accuracy: {scores.mean():.3f} ± {scores.std():.3f}")
